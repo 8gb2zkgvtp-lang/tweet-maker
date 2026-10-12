@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>石垢ツイート生成</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: 1 column tool. Result card first (the job), settings below, mono for counts. */
+  :root {
+    --bg: #f1f4f8;
+    --surface: #ffffff;
+    --fg: #15202b;
+    --muted: #586878;
+    --line: #d5dce5;
+    --accent: #2a78b5;
+    --accent-fg: #ffffff;
+    --accent-soft: #e3eef8;
+    --warn: #b4321f;
+    --font-body: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    --font-mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e151d;
+      --surface: #16202b;
+      --fg: #e5ecf3;
+      --muted: #8d9cac;
+      --line: #2a3745;
+      --accent: #5aa9e6;
+      --accent-fg: #0b1620;
+      --accent-soft: #1b2c3d;
+      --warn: #ff8b78;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e151d;
+    --surface: #16202b;
+    --fg: #e5ecf3;
+    --muted: #8d9cac;
+    --line: #2a3745;
+    --accent: #5aa9e6;
+    --accent-fg: #0b1620;
+    --accent-soft: #1b2c3d;
+    --warn: #ff8b78;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    padding-inline: 16px;
+    padding-block: 24px 40px;
+  }
+  .wrap { max-width: 40rem; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font-size: 1.35rem; font-weight: 700; margin: 0; letter-spacing: 0.02em; text-wrap: balance; }
+  .lead { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+  .out { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .tweet {
+    font-size: 1.05rem;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    min-width: 0;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .tweet .mention { color: var(--accent); }
+  .meta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .meta .over { color: var(--warn); font-weight: 500; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .status { font-size: 0.85rem; color: var(--muted); min-height: 1.4em; }
+
+  button {
+    font: inherit;
+    font-weight: 500;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  button.primary:hover { filter: brightness(1.06); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .settings { display: flex; flex-direction: column; gap: 16px; }
+  .settings h2 { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field label { font-size: 0.85rem; font-weight: 500; }
+  .hint { font-size: 0.78rem; color: var(--muted); margin: 0; }
+  input[type="text"], input[type="number"], textarea {
+    font: inherit;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--fg);
+  }
+  textarea { line-height: 1.6; resize: vertical; min-height: 12rem; }
+  #contact { min-height: 4.5rem; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 14px; }
+  .range { display: flex; align-items: center; gap: 8px; }
+  .range span { color: var(--muted); }
+  input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .count { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>石垢ツイート生成</h1>
+    <p class="lead">アプリ名をランダムに選んで並べ替え、ツイート文を作ります。</p>
+  </header>
+
+  <section class="out" aria-label="生成結果">
+    <div class="tweet" id="tweet" aria-live="polite"></div>
+    <div class="meta">
+      <span id="items">0件</span>
+      <span id="count">0 / 280</span>
+    </div>
+    <div class="actions">
+      <button class="primary" id="gen" type="button">シャッフル</button>
+      <button id="copy" type="button">コピー</button>
+      <span class="status" id="status" role="status"></span>
+    </div>
+  </section>
+
+  <section class="settings" aria-label="設定">
+    <h2>設定</h2>
+
+    <div class="field">
+      <label for="header">1行目</label>
+      <input type="text" id="header" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="contact">問い合わせ文</label>
+      <textarea id="contact" rows="2" spellcheck="false"></textarea>
+      <p class="hint">@から始まる名前は青く表示されます。絵文字も改行も使えます。</p>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="min">載せる個数</label>
+        <div class="range">
+          <input type="number" id="min" min="1" max="60" inputmode="numeric">
+          <span>〜</span>
+          <input type="number" id="max" min="1" max="60" inputmode="numeric" aria-label="最大個数">
+        </div>
+        <p class="hint">この範囲でランダムに決めます。</p>
+      </div>
+      <div class="field">
+        <label for="tail">リスト末尾の固定語</label>
+        <input type="text" id="tail" autocomplete="off">
+        <p class="hint">毎回最後に付けます。空欄なら付けません。</p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="apps">アプリ名リスト</label>
+      <textarea id="apps" spellcheck="false"></textarea>
+      <p class="hint">1行に1つ。「モンスト販売」のように販売付きで書いてもそのまま使えます。「モンスト」と「モンスト販売」のように同じアプリは1回しか選ばれません。入力欄から離れると作り直します。</p>
+    </div>
+
+    <div class="foot">
+      <span class="count" id="appcount"></span>
+      <button id="reset" type="button">初期値に戻す</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var STORE_KEY = "ishiaka-tweet-v1";
+  var LIMIT = 280;
+
+  var DEFAULTS = {
+    header: "〜各種石垢販売中〜",
+    contact: "お問い合わせは@_q4rz までご連絡お願いします🙇‍♂️",
+    min: 12,
+    max: 16,
+    tail: "垢販売",
+    apps: [
+      "ブルアカ", "デュエプレ", "ウマ娘", "キングダム頂点", "デレステ",
+      "ドラクエウォーク", "パワプロ", "バンドリ", "メガニケ", "メジャスピ",
+      "モンスト", "レジェンズ", "オーブ", "プロセカ", "原神",
+      "ブルーロック", "トレクル", "ドラクエタクト", "FGO", "グラクロ",
+      "ドカバト", "バウンティ", "パズドラ", "ウイイレ", "ポコダン"
+    ].join("\n")
+  };
+
+  var el = {};
+  ["tweet", "items", "count", "gen", "copy", "status", "header", "contact", "min", "max", "tail", "apps", "appcount", "reset"]
+    .forEach(function (id) { el[id] = document.getElementById(id); });
+
+  var state = load();
+  var lastText = "";
+  var currentText = "";
+  var statusTimer = null;
+  var resetTimer = null;
+  var resetArmed = false;
+
+  function load() {
+    var s = {};
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) s = JSON.parse(raw) || {};
+    } catch (e) {}
+    if (s.contact === undefined && (s.handle !== undefined || s.emoji !== undefined)) {
+      s.contact = "お問い合わせは" + (s.handle || "") + " までご連絡お願いします" + (s.emoji || "");
+    }
+    var out = {};
+    Object.keys(DEFAULTS).forEach(function (k) {
+      out[k] = (s[k] !== undefined && s[k] !== null) ? s[k] : DEFAULTS[k];
+    });
+    return out;
+  }
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function readFields() {
+    state.header = el.header.value;
+    state.contact = el.contact.value;
+    state.min = parseInt(el.min.value, 10) || 1;
+    state.max = parseInt(el.max.value, 10) || 1;
+    state.tail = el.tail.value;
+    state.apps = el.apps.value;
+  }
+
+  function writeFields() {
+    el.header.value = state.header;
+    el.contact.value = state.contact;
+    el.min.value = state.min;
+    el.max.value = state.max;
+    el.tail.value = state.tail;
+    el.apps.value = state.apps;
+  }
+
+  function keyOf(name) { return name.replace(/(垢)?販売$/, ""); }
+
+  function groups() {
+    var map = new Map();
+    state.apps.split(/\r?\n/).forEach(function (line) {
+      var name = line.trim();
+      if (!name) return;
+      var k = keyOf(name) || name;
+      if (!map.has(k)) map.set(k, []);
+      if (map.get(k).indexOf(name) === -1) map.get(k).push(name);
+    });
+    return Array.from(map.values());
+  }
+
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+  function build() {
+    var g = groups();
+    var lo = Math.max(1, Math.min(state.min, state.max));
+    var hi = Math.max(1, Math.max(state.min, state.max));
+    hi = Math.min(hi, Math.max(g.length, 1));
+    lo = Math.min(lo, hi);
+    var n = g.length ? randInt(lo, hi) : 0;
+    var picked = shuffle(g.slice()).slice(0, n).map(function (variants) {
+      return variants[Math.floor(Math.random() * variants.length)];
+    });
+    var tail = state.tail.trim();
+    if (tail) picked.push(tail);
+    var parts = [];
+    if (state.header.trim()) { parts.push(state.header.trim()); parts.push(""); }
+    if (state.contact.trim()) {
+      parts.push(state.contact.replace(/\s+$/, ""));
+      parts.push("");
+    }
+    parts.push(picked.join("/"));
+    return { text: parts.join("\n").replace(/\s+$/, ""), items: picked.length };
+  }
+
+  function weight(str) {
+    var segs;
+    if (typeof Intl !== "undefined" && Intl.Segmenter) {
+      segs = Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(str)).map(function (s) { return s.segment; });
+    } else {
+      segs = Array.from(str);
+    }
+    var w = 0;
+    segs.forEach(function (g) {
+      if (/\p{Extended_Pictographic}/u.test(g)) { w += 2; return; }
+      Array.from(g).forEach(function (ch) {
+        var c = ch.codePointAt(0);
+        w += (c <= 4351 || (c >= 8192 && c <= 8205) || (c >= 8208 && c <= 8223) || (c >= 8242 && c <= 8247)) ? 1 : 2;
+      });
+    });
+    return w;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
+  }
+
+  function render(result) {
+    currentText = result.text;
+    var html = escapeHtml(result.text);
+    html = html.replace(/@[A-Za-z0-9_]+/g, '<span class="mention">$&</span>');
+    el.tweet.innerHTML = html;
+    var w = weight(result.text);
+    el.count.textContent = w + " / " + LIMIT;
+    el.count.className = w > LIMIT ? "over" : "";
+    el.items.textContent = result.items + "件のアプリ名";
+    el.appcount.textContent = "登録 " + groups().length + " 種類";
+  }
+
+  function generate() {
+    var r = build();
+    for (var i = 0; i < 6 && r.text === lastText && groups().length > 1; i++) r = build();
+    lastText = r.text;
+    render(r);
+  }
+
+  function flash(msg) {
+    el.status.textContent = msg;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () { el.status.textContent = ""; }, 3000);
+  }
+
+  function selectTweet() {
+    var range = document.createRange();
+    range.selectNodeContents(el.tweet);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function copyText() {
+    var done = function () { flash("コピーしました"); };
+    var fallback = function () {
+      selectTweet();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      flash(ok ? "コピーしました" : "選択しました。長押しでコピーしてください");
+    };
+    try {
+      navigator.clipboard.writeText(currentText).then(done, fallback);
+    } catch (e) {
+      fallback();
+    }
+  }
+
+  el.gen.addEventListener("click", function () { readFields(); save(); generate(); });
+  el.copy.addEventListener("click", copyText);
+
+  ["header", "contact", "min", "max", "tail", "apps"].forEach(function (id) {
+    el[id].addEventListener("input", function () { readFields(); save(); });
+    el[id].addEventListener("change", function () { readFields(); save(); generate(); });
+  });
+
+  el.reset.addEventListener("click", function () {
+    if (!resetArmed) {
+      resetArmed = true;
+      el.reset.textContent = "もう一度押すと初期値に戻します";
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(function () {
+        resetArmed = false;
+        el.reset.textContent = "初期値に戻す";
+      }, 4000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    resetArmed = false;
+    el.reset.textContent = "初期値に戻す";
+    state = JSON.parse(JSON.stringify(DEFAULTS));
+    writeFields();
+    save();
+    generate();
+    flash("初期値に戻しました");
+  });
+
+  writeFields();
+  generate();
+})();
+</script>
+
+</body>
+</html>
