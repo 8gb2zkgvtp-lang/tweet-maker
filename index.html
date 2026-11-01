@@ -95,14 +95,15 @@
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
   button.primary:hover { filter: brightness(1.06); }
-  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .settings { display: flex; flex-direction: column; gap: 16px; }
   .settings h2 { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+  .settings h2.sub { margin-top: 10px; padding-top: 18px; border-top: 1px solid var(--line); }
   .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .field label { font-size: 0.85rem; font-weight: 500; }
   .hint { font-size: 0.78rem; color: var(--muted); margin: 0; }
-  input[type="text"], input[type="number"], textarea {
+  input[type="text"], input[type="number"], textarea, select {
     font: inherit;
     width: 100%;
     min-width: 0;
@@ -113,11 +114,15 @@
     color: var(--fg);
   }
   textarea { line-height: 1.6; resize: vertical; min-height: 12rem; }
-  #contact { min-height: 4.5rem; }
+  textarea.pool { min-height: 7.5rem; }
   .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 14px; }
   .range { display: flex; align-items: center; gap: 8px; }
   .range span { color: var(--muted); }
   input[type="number"] { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .check { flex-direction: row; align-items: flex-start; gap: 10px; }
+  .check input { width: 22px; height: 22px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+  .check .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .check label { font-size: 0.9rem; }
   .foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .count { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
 </style>
@@ -127,7 +132,7 @@
 <div class="wrap">
   <header>
     <h1>石垢ツイート生成</h1>
-    <p class="lead">アプリ名をランダムに選んで並べ替え、ツイート文を作ります。</p>
+    <p class="lead">冒頭文・問い合わせ文・一言・アプリ名を毎回ランダムに組み合わせて、ツイート文を作ります。</p>
   </header>
 
   <section class="out" aria-label="生成結果">
@@ -144,18 +149,51 @@
   </section>
 
   <section class="settings" aria-label="設定">
-    <h2>設定</h2>
+    <h2>文面のパターン</h2>
 
     <div class="field">
-      <label for="header">1行目</label>
-      <input type="text" id="header" autocomplete="off">
+      <label for="headers">冒頭文</label>
+      <textarea id="headers" class="pool" spellcheck="false"></textarea>
+      <p class="hint">1行に1パターン。生成のたびにどれか1つが選ばれ、直前と同じものは続けて出ません。</p>
     </div>
 
     <div class="field">
-      <label for="contact">問い合わせ文</label>
-      <textarea id="contact" rows="2" spellcheck="false"></textarea>
-      <p class="hint">@から始まる名前は青く表示されます。絵文字も改行も使えます。</p>
+      <label for="contacts">問い合わせ文</label>
+      <textarea id="contacts" class="pool" spellcheck="false"></textarea>
+      <p class="hint">1行に1パターン。@から始まる名前は青く表示されます。名前の後ろには半角スペースを入れてください。</p>
     </div>
+
+    <div class="field">
+      <label for="extras">追加の一言</label>
+      <textarea id="extras" class="pool" spellcheck="false"></textarea>
+      <p class="hint">1行に1パターン。入れる頻度は下で選べます。</p>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="extraMode">一言を入れる頻度</label>
+        <select id="extraMode">
+          <option value="off">入れない</option>
+          <option value="sometimes">ときどき（約半分）</option>
+          <option value="always">毎回</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="seps">アプリ名の区切り記号</label>
+        <input type="text" id="seps" autocomplete="off" spellcheck="false">
+        <p class="hint">スペースで区切って複数書くと、毎回どれかを使います。</p>
+      </div>
+    </div>
+
+    <div class="field check">
+      <input type="checkbox" id="layoutRandom">
+      <div class="txt">
+        <label for="layoutRandom">並び順と空行もランダムにする</label>
+        <p class="hint">問い合わせ文や一言の位置、空行の入れ方が毎回変わります。</p>
+      </div>
+    </div>
+
+    <h2 class="sub">アプリ名</h2>
 
     <div class="row">
       <div class="field">
@@ -174,6 +212,14 @@
       </div>
     </div>
 
+    <div class="field check">
+      <input type="checkbox" id="fit">
+      <div class="txt">
+        <label for="fit">280文字を超えるときはアプリ名を減らす</label>
+        <p class="hint">超えた分だけ、リストの後ろから外します。長文投稿ができるアカウントはオフにしてください。</p>
+      </div>
+    </div>
+
     <div class="field">
       <label for="apps">アプリ名リスト</label>
       <textarea id="apps" spellcheck="false"></textarea>
@@ -189,12 +235,44 @@
 
 <script>
 (function () {
-  var STORE_KEY = "ishiaka-tweet-v1";
+  var STORE_KEY = "ishiaka-tweet-v2";
+  var OLD_KEY = "ishiaka-tweet-v1";
   var LIMIT = 280;
 
+  var ORDERS = [
+    ["h", "c", "x", "l"],
+    ["h", "c", "l", "x"],
+    ["h", "x", "c", "l"],
+    ["h", "l", "c", "x"],
+    ["h", "l", "x", "c"]
+  ];
+
   var DEFAULTS = {
-    header: "〜各種石垢販売中〜",
-    contact: "お問い合わせは@_q4rz までご連絡お願いします🙇‍♂️",
+    headers: [
+      "〜各種石垢販売中〜",
+      "【石垢販売】各種タイトル取り扱い中",
+      "◆各種ゲーム石垢あります◆",
+      "＼石垢販売しています／",
+      "〜石垢・垢販売 承ります〜",
+      "★各種石垢ご用意しています★"
+    ].join("\n"),
+    contacts: [
+      "お問い合わせは@_q4rz までご連絡お願いします🙇‍♂️",
+      "ご興味のある方は@_q4rz までご連絡ください🙏",
+      "ご連絡は@_q4rz までお願いします🙇‍♂️",
+      "購入をご希望の方は@_q4rz までお気軽にどうぞ",
+      "詳細は@_q4rz までお問い合わせください🙏"
+    ].join("\n"),
+    extras: [
+      "お探しのタイトルがあればお気軽にご相談ください",
+      "掲載外のタイトルもご相談ください",
+      "まずはお気軽にご連絡ください",
+      "気になるタイトルがあればご連絡ください"
+    ].join("\n"),
+    extraMode: "sometimes",
+    seps: "/ ・ ｜",
+    layoutRandom: true,
+    fit: true,
     min: 12,
     max: 16,
     tail: "垢販売",
@@ -207,16 +285,27 @@
     ].join("\n")
   };
 
+  var IDS = ["tweet", "items", "count", "gen", "copy", "status", "headers", "contacts", "extras", "extraMode", "seps",
+    "layoutRandom", "fit", "min", "max", "tail", "apps", "appcount", "reset"];
   var el = {};
-  ["tweet", "items", "count", "gen", "copy", "status", "header", "contact", "min", "max", "tail", "apps", "appcount", "reset"]
-    .forEach(function (id) { el[id] = document.getElementById(id); });
+  IDS.forEach(function (id) { el[id] = document.getElementById(id); });
 
   var state = load();
+  var last = {};
   var lastText = "";
   var currentText = "";
   var statusTimer = null;
   var resetTimer = null;
   var resetArmed = false;
+
+  function oneLine(s) { return String(s).replace(/\s*\r?\n\s*/g, " ").trim(); }
+
+  function mergeLines(first, defaults) {
+    var f = oneLine(first);
+    var out = f ? [f] : [];
+    defaults.split("\n").forEach(function (d) { if (out.indexOf(d) === -1) out.push(d); });
+    return out.join("\n");
+  }
 
   function load() {
     var s = {};
@@ -224,8 +313,16 @@
       var raw = localStorage.getItem(STORE_KEY);
       if (raw) s = JSON.parse(raw) || {};
     } catch (e) {}
-    if (s.contact === undefined && (s.handle !== undefined || s.emoji !== undefined)) {
-      s.contact = "お問い合わせは" + (s.handle || "") + " までご連絡お願いします" + (s.emoji || "");
+    if (!Object.keys(s).length) {
+      try {
+        var rawOld = localStorage.getItem(OLD_KEY);
+        if (rawOld) {
+          var o = JSON.parse(rawOld) || {};
+          ["min", "max", "tail", "apps"].forEach(function (k) { if (o[k] !== undefined) s[k] = o[k]; });
+          if (o.header) s.headers = mergeLines(o.header, DEFAULTS.headers);
+          if (o.contact) s.contacts = mergeLines(o.contact, DEFAULTS.contacts);
+        }
+      } catch (e) {}
     }
     var out = {};
     Object.keys(DEFAULTS).forEach(function (k) {
@@ -239,8 +336,13 @@
   }
 
   function readFields() {
-    state.header = el.header.value;
-    state.contact = el.contact.value;
+    state.headers = el.headers.value;
+    state.contacts = el.contacts.value;
+    state.extras = el.extras.value;
+    state.extraMode = el.extraMode.value;
+    state.seps = el.seps.value;
+    state.layoutRandom = el.layoutRandom.checked;
+    state.fit = el.fit.checked;
     state.min = parseInt(el.min.value, 10) || 1;
     state.max = parseInt(el.max.value, 10) || 1;
     state.tail = el.tail.value;
@@ -248,8 +350,13 @@
   }
 
   function writeFields() {
-    el.header.value = state.header;
-    el.contact.value = state.contact;
+    el.headers.value = state.headers;
+    el.contacts.value = state.contacts;
+    el.extras.value = state.extras;
+    el.extraMode.value = state.extraMode;
+    el.seps.value = state.seps;
+    el.layoutRandom.checked = !!state.layoutRandom;
+    el.fit.checked = !!state.fit;
     el.min.value = state.min;
     el.max.value = state.max;
     el.tail.value = state.tail;
@@ -258,11 +365,13 @@
 
   function keyOf(name) { return name.replace(/(垢)?販売$/, ""); }
 
+  function lines(str) {
+    return String(str).split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+  }
+
   function groups() {
     var map = new Map();
-    state.apps.split(/\r?\n/).forEach(function (line) {
-      var name = line.trim();
-      if (!name) return;
+    lines(state.apps).forEach(function (name) {
       var k = keyOf(name) || name;
       if (!map.has(k)) map.set(k, []);
       if (map.get(k).indexOf(name) === -1) map.get(k).push(name);
@@ -280,6 +389,15 @@
 
   function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 
+  function pick(key, pool) {
+    if (!pool.length) return "";
+    var cand = pool.length > 1 ? pool.filter(function (p) { return p !== last[key]; }) : pool;
+    if (!cand.length) cand = pool;
+    var v = cand[Math.floor(Math.random() * cand.length)];
+    last[key] = v;
+    return v;
+  }
+
   function build() {
     var g = groups();
     var lo = Math.max(1, Math.min(state.min, state.max));
@@ -287,19 +405,42 @@
     hi = Math.min(hi, Math.max(g.length, 1));
     lo = Math.min(lo, hi);
     var n = g.length ? randInt(lo, hi) : 0;
-    var picked = shuffle(g.slice()).slice(0, n).map(function (variants) {
+    var apps = shuffle(g.slice()).slice(0, n).map(function (variants) {
       return variants[Math.floor(Math.random() * variants.length)];
     });
     var tail = state.tail.trim();
-    if (tail) picked.push(tail);
-    var parts = [];
-    if (state.header.trim()) { parts.push(state.header.trim()); parts.push(""); }
-    if (state.contact.trim()) {
-      parts.push(state.contact.replace(/\s+$/, ""));
-      parts.push("");
+
+    var sepPool = String(state.seps).split(/\s+/).filter(Boolean);
+    var sep = pick("sep", sepPool.length ? sepPool : ["/"]);
+    var header = pick("h", lines(state.headers));
+    var contact = pick("c", lines(state.contacts));
+    var extra = "";
+    if (state.extraMode === "always" || (state.extraMode === "sometimes" && Math.random() < 0.5)) {
+      extra = pick("x", lines(state.extras));
     }
-    parts.push(picked.join("/"));
-    return { text: parts.join("\n").replace(/\s+$/, ""), items: picked.length };
+
+    var order = ORDERS[0];
+    var gaps = ["\n\n", "\n\n", "\n\n"];
+    if (state.layoutRandom) {
+      order = ORDERS[Math.floor(Math.random() * ORDERS.length)];
+      gaps = [0, 1, 2].map(function () { return Math.random() < 0.7 ? "\n\n" : "\n"; });
+    }
+
+    function compose(list) {
+      var all = tail ? list.concat([tail]) : list;
+      var map = { h: header, c: contact, x: extra, l: all.join(sep) };
+      var seq = order.filter(function (k) { return map[k]; });
+      var text = "";
+      seq.forEach(function (k, i) { text += (i ? gaps[i - 1] : "") + map[k]; });
+      return text;
+    }
+
+    var text = compose(apps);
+    while (state.fit && apps.length > 1 && weight(text) > LIMIT) {
+      apps.pop();
+      text = compose(apps);
+    }
+    return { text: text, items: apps.length };
   }
 
   function weight(str) {
@@ -338,7 +479,7 @@
 
   function generate() {
     var r = build();
-    for (var i = 0; i < 6 && r.text === lastText && groups().length > 1; i++) r = build();
+    for (var i = 0; i < 6 && r.text === lastText; i++) r = build();
     lastText = r.text;
     render(r);
   }
@@ -375,7 +516,7 @@
   el.gen.addEventListener("click", function () { readFields(); save(); generate(); });
   el.copy.addEventListener("click", copyText);
 
-  ["header", "contact", "min", "max", "tail", "apps"].forEach(function (id) {
+  ["headers", "contacts", "extras", "extraMode", "seps", "layoutRandom", "fit", "min", "max", "tail", "apps"].forEach(function (id) {
     el[id].addEventListener("input", function () { readFields(); save(); });
     el[id].addEventListener("change", function () { readFields(); save(); generate(); });
   });
@@ -395,6 +536,7 @@
     resetArmed = false;
     el.reset.textContent = "初期値に戻す";
     state = JSON.parse(JSON.stringify(DEFAULTS));
+    last = {};
     writeFields();
     save();
     generate();
